@@ -69,9 +69,9 @@ distribution, $b_0 = -1.8$ and $b_1 = 0.1$.
 
 Draw a sample of size $n = 500$ from the finite population with these
 inclusion probabilities. Let
-${w}_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote the
-scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes its
-inclusion probability.
+$w_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote the scaled
+sampling weight of sampled unit $i$, where $\pi_i$ denotes its inclusion
+probability.
 
 Our objective in this setting is to infer about the population mean,
 $\mu_x$.

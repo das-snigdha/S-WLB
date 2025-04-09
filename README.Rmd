@@ -43,7 +43,7 @@ We create a population of size $N = 50,000$ where our random variable of interes
 
 For each population unit $l = 1, 2, \ldots, N$, the inclusion probabilities are generated as $\pi_l = \Phi(b_0 + b_1 Z_l)$, where $\Phi$ is the cumulative distribution function of a standard normal distribution, $b_0 = -1.8$ and $b_1 = 0.1$. 
 
-Draw a sample of size $n = 500$ from the finite population with these inclusion probabilities. Let ${w}_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote the scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes its inclusion probability.
+Draw a sample of size $n = 500$ from the finite population with these inclusion probabilities. Let $w_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote the scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes its inclusion probability.
 
 Our objective in this setting is to infer about the population mean, $\mu_x$.
 
