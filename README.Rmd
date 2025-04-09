@@ -43,16 +43,17 @@ We create a population of size $N = 50,000$ where our random variable of interes
 
 For each population unit $l = 1, 2, \ldots, N$, the inclusion probabilities are generated as $\pi_l = \Phi(b_0 + b_1 Z_l)$, where $\Phi$ is the cumulative distribution function of a standard normal distribution, $b_0 = -1.8$ and $b_1 = 0.1$. 
 
-Draw a sample of size $n = 500$ from the finite population with these inclusion probabilities. Let $\Tilde{w}_{n,i} = n {\pi_i}^{-1} \big/ \sum_{j=1}^n {\pi_j}^{-1}$ denote the scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes its inclusion probability.
+Draw a sample of size $n = 500$ from the finite population with these inclusion probabilities. Let $\tilde{w}_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote the scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes its inclusion probability.
 
 Our objective in this setting is to infer about the population mean, $\mu_x$.
 
 **Data generation** :
 ```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
 source("data_generate.R")
 source("normal_model.R")
 
-set.seed(2025)
+set.seed(25)
 # Specify the population and sample sizes
 N = 50000; n = 500
 
@@ -69,4 +70,98 @@ df = data_normal(mu_x = mu_x, mu_z = mu_z, s_x = s_x, s_z = s_z, rho = rho,
 ```{r, message = FALSE, warning = FALSE}
 est.SWLB = SWLB.normal(y = df$x, w = df$w, B = M)
 est.SWLB
+```
+
+**Demonstrate the performance in point estimation and coverage probability of uncertainty intervals** :
+
+We perform $100$ Monte Carlo simulations to compare the performance in point estimation and coverage probability of uncertainty intervals across the different methods.
+```{r, message = FALSE, warning = FALSE}
+# Specify the number of Monte Carlo simulations
+nRep = 100
+methods = c("PMLE", "SWLB", "BPPE", "UBE")
+est = CovI = matrix(NA, nrow = nRep, ncol = length(methods))
+colnames(est) = colnames(CovI) = methods
+
+set.seed(25)
+for(r in 1:nRep){
+  
+  df = data_normal(mu_x = mu_x, mu_z = mu_z, s_x = s_x, s_z = s_z, rho = rho,
+                   b0 = b0, b1 = b1, n = n, N = N)
+  
+  # PMLE
+  est.PMLE = PMLE.normal(y = df$x, w = df$w)
+  est[r, "PMLE"] = est.PMLE$mu.PMLE
+  CovI[r, "PMLE"] = 1*(mu_x >= est.PMLE$CI.PMLE[1] && mu_x <= est.PMLE$CI.PMLE[2])
+  
+  # UBE
+  est.UBE = UBE.normal(y = df$x)
+  est[r, "UBE"] = est.UBE$mu.UBE
+  CovI[r, "UBE"] = 1*(mu_x >= est.UBE$CI.UBE[1] && mu_x <= est.UBE$CI.UBE[2])
+  
+  # BPPE
+  est.BPPE = BPPE.normal(y = df$x, w = df$w)
+  est[r, "BPPE"] = est.BPPE$mu.BPPE
+  CovI[r, "BPPE"] = 1*(mu_x >= est.BPPE$CI.BPPE[1] && mu_x <= est.BPPE$CI.BPPE[2])
+  
+  # SWLB
+  est.SWLB = SWLB.normal(y = df$x, w = df$w, B = M)
+  est[r, "SWLB"] = est.SWLB$mu.SWLB
+  CovI[r, "SWLB"] = 1*(mu_x >= est.SWLB$CI.SWLB[1] && mu_x <= est.SWLB$CI.SWLB[2])
+}
+```
+
+```{r, include=FALSE}
+themegg = theme(
+  # LABLES APPEARANCE
+  panel.grid.major = element_blank(), 
+  panel.grid.minor = element_blank(),
+  panel.background = element_rect(fill = "transparent",colour = NA),
+  plot.background = element_rect(fill = "transparent",colour = NA),
+  plot.title = element_text(hjust = 0.5, size=14, face= "bold", colour= "black" ),
+  axis.title.x = element_text(size=14, face="bold", colour = "black"),    
+  axis.title.y = element_text(size=14, face="bold", colour = "black"),    
+  axis.text.x = element_text(size=12, colour = "black"), 
+  axis.text.y = element_text(size=12, colour = "black"),
+  strip.text.x = element_text(size = 12, face="bold", colour = "black" ),
+  strip.text.y = element_text(size = 12, face="bold", colour = "black"),
+  strip.background =  element_rect(fill = "transparent",colour = NA),
+  axis.line.x = element_line(color="black", linewidth = 0.2),
+  axis.line.y = element_line(color="black", linewidth =  0.2),
+  panel.border = element_rect(colour = "black", fill=NA, linewidth = 0.2),
+  legend.position = "none"
+)
+```
+
+Plot showing the point estimates:
+
+```{r, warning=FALSE, message=FALSE}
+# all plots follow a pre-specified theme stored in "themegg", 
+# which can be found in the README.Rmd file.
+
+df.est = data.frame(est = c(est), method = rep(methods, each = nRep))
+df.est$method = factor(df.est$method, levels = methods)
+g.est = ggplot(df.est, aes(x = method, y = est, color = method)) +
+  geom_boxplot(outlier.size = 0.2) + 
+  geom_hline(yintercept = mu_x, linetype = "dotted", color = "darkblue", size = 0.8) +
+  scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
+  xlab("Methods") + ylab("Estimate of the mean") + themegg
+g.est
+```
+
+Plot showing the coverage probability of the $95 \%$ intervals:
+
+```{r, warning=FALSE, message=FALSE}
+# all plots follow a pre-specified theme stored in "themegg", 
+# which can be found in the README.Rmd file.
+
+CovP = colMeans(CovI)
+df.cov = data.frame(covP = CovP, method = methods)
+df.cov$method = factor(df.cov$method, levels = methods)
+g.cov = ggplot(df.cov, aes(x = method, y = covP, color = method, fill = method)) +
+  geom_bar(stat="identity", width = 0.5, alpha = 0.6)+
+  geom_hline(yintercept = 0.95, linetype = "dotted", color = "darkblue") +
+  scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
+  scale_fill_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
+  xlab("Methods") + ylab("Coverage probability") + themegg
+g.cov
 ```

@@ -69,9 +69,9 @@ distribution, $b_0 = -1.8$ and $b_1 = 0.1$.
 
 Draw a sample of size $n = 500$ from the finite population with these
 inclusion probabilities. Let
-$\Tilde{w}_{n,i} = n {\pi_i}^{-1} \big/ \sum_{j=1}^n {\pi_j}^{-1}$
-denote the scaled sampling weight of sampled unit $i$, where $\pi_i$
-denotes its inclusion probability.
+$\tilde{w}_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote
+the scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes
+its inclusion probability.
 
 Our objective in this setting is to infer about the population mean,
 $\mu_x$.
@@ -79,10 +79,11 @@ $\mu_x$.
 **Data generation** :
 
 ``` r
+library(tidyverse)
 source("data_generate.R")
 source("normal_model.R")
 
-set.seed(2025)
+set.seed(25)
 # Specify the population and sample sizes
 N = 50000; n = 500
 
@@ -103,11 +104,91 @@ est.SWLB
 ```
 
     ## $mu.SWLB
-    ## [1] 10.30428
+    ## [1] 9.946979
     ## 
     ## $sigma.sq.SWLB
-    ## [1] 0.04916955
+    ## [1] 0.06501214
     ## 
     ## $CI.SWLB
-    ##      2.5%     97.5% 
-    ##  9.848608 10.729523
+    ##     2.5%    97.5% 
+    ##  9.41759 10.40478
+
+**Demonstrate the performance in point estimation and coverage
+probability of uncertainty intervals** :
+
+We perform $100$ Monte Carlo simulations to compare the performance in
+point estimation and coverage probability of uncertainty intervals
+across the different methods.
+
+``` r
+# Specify the number of Monte Carlo simulations
+nRep = 100
+methods = c("PMLE", "SWLB", "BPPE", "UBE")
+est = CovI = matrix(NA, nrow = nRep, ncol = length(methods))
+colnames(est) = colnames(CovI) = methods
+
+set.seed(25)
+for(r in 1:nRep){
+  
+  df = data_normal(mu_x = mu_x, mu_z = mu_z, s_x = s_x, s_z = s_z, rho = rho,
+                   b0 = b0, b1 = b1, n = n, N = N)
+  
+  # PMLE
+  est.PMLE = PMLE.normal(y = df$x, w = df$w)
+  est[r, "PMLE"] = est.PMLE$mu.PMLE
+  CovI[r, "PMLE"] = 1*(mu_x >= est.PMLE$CI.PMLE[1] && mu_x <= est.PMLE$CI.PMLE[2])
+  
+  # UBE
+  est.UBE = UBE.normal(y = df$x)
+  est[r, "UBE"] = est.UBE$mu.UBE
+  CovI[r, "UBE"] = 1*(mu_x >= est.UBE$CI.UBE[1] && mu_x <= est.UBE$CI.UBE[2])
+  
+  # BPPE
+  est.BPPE = BPPE.normal(y = df$x, w = df$w)
+  est[r, "BPPE"] = est.BPPE$mu.BPPE
+  CovI[r, "BPPE"] = 1*(mu_x >= est.BPPE$CI.BPPE[1] && mu_x <= est.BPPE$CI.BPPE[2])
+  
+  # SWLB
+  est.SWLB = SWLB.normal(y = df$x, w = df$w, B = M)
+  est[r, "SWLB"] = est.SWLB$mu.SWLB
+  CovI[r, "SWLB"] = 1*(mu_x >= est.SWLB$CI.SWLB[1] && mu_x <= est.SWLB$CI.SWLB[2])
+}
+```
+
+Plot showing the point estimates:
+
+``` r
+# all plots follow a pre-specified theme stored in "themegg", 
+# which can be found in the README.Rmd file.
+
+df.est = data.frame(est = c(est), method = rep(methods, each = nRep))
+df.est$method = factor(df.est$method, levels = methods)
+g.est = ggplot(df.est, aes(x = method, y = est, color = method)) +
+  geom_boxplot(outlier.size = 0.2) + 
+  geom_hline(yintercept = mu_x, linetype = "dotted", color = "darkblue", size = 0.8) +
+  scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
+  xlab("Methods") + ylab("Estimate of the mean") + themegg
+g.est
+```
+
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+
+Plot showing the coverage probability of the $95 \%$ intervals:
+
+``` r
+# all plots follow a pre-specified theme stored in "themegg", 
+# which can be found in the README.Rmd file.
+
+CovP = colMeans(CovI)
+df.cov = data.frame(covP = CovP, method = methods)
+df.cov$method = factor(df.cov$method, levels = methods)
+g.cov = ggplot(df.cov, aes(x = method, y = covP, color = method, fill = method)) +
+  geom_bar(stat="identity", width = 0.5, alpha = 0.6)+
+  geom_hline(yintercept = 0.95, linetype = "dotted", color = "darkblue") +
+  scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
+  scale_fill_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
+  xlab("Methods") + ylab("Coverage probability") + themegg
+g.cov
+```
+
+![](README_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
