@@ -123,7 +123,7 @@ BPPE.probit = function(y, x, w, B, Burn.in){
   
 }
 
-# Bayesian Pseudo Posterior Estimator
+# Estimator from Weighted Bayesian Bootstrap
 # x, y : observed sample of size n
 # w : corresponding sampling weights
 # N : population size
