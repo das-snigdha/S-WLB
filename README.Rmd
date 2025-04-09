@@ -78,13 +78,17 @@ We perform $100$ Monte Carlo simulations to compare the performance in point est
 ```{r, message = FALSE, warning = FALSE}
 # Specify the number of Monte Carlo simulations
 nRep = 100
+# Specify the methods for comparison
 methods = c("PMLE", "SWLB", "BPPE", "UBE")
+
+# Matrices to store the point estimates and coverage indicators
 est = CovI = matrix(NA, nrow = nRep, ncol = length(methods))
 colnames(est) = colnames(CovI) = methods
 
 set.seed(25)
 for(r in 1:nRep){
   
+  # generate the data
   df = data_normal(mu_x = mu_x, mu_z = mu_z, s_x = s_x, s_z = s_z, rho = rho,
                    b0 = b0, b1 = b1, n = n, N = N)
   
@@ -138,25 +142,33 @@ Plot showing the point estimates:
 # all plots follow a pre-specified theme stored in "themegg", 
 # which can be found in the README.Rmd file.
 
+# data frame for plotting the point estimates
 df.est = data.frame(est = c(est), method = rep(methods, each = nRep))
 df.est$method = factor(df.est$method, levels = methods)
+
+# Boxplots of the point estimates 
 g.est = ggplot(df.est, aes(x = method, y = est, color = method)) +
   geom_boxplot(outlier.size = 0.2) + 
-  geom_hline(yintercept = mu_x, linetype = "dotted", color = "darkblue", size = 0.8) +
+  geom_hline(yintercept = mu_x, linetype = "dotted", color = "darkblue") +
   scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
   xlab("Methods") + ylab("Estimate of the mean") + themegg
 g.est
 ```
 
-Plot showing the coverage probability of the $95 \%$ intervals:
+Plot showing the coverage probability of the $95$\% intervals:
 
 ```{r, warning=FALSE, message=FALSE}
 # all plots follow a pre-specified theme stored in "themegg", 
 # which can be found in the README.Rmd file.
 
+# Calculate the coverage probability
 CovP = colMeans(CovI)
+
+# data frame for plotting the coverage probability
 df.cov = data.frame(covP = CovP, method = methods)
 df.cov$method = factor(df.cov$method, levels = methods)
+
+# Barplots of the coverage probability
 g.cov = ggplot(df.cov, aes(x = method, y = covP, color = method, fill = method)) +
   geom_bar(stat="identity", width = 0.5, alpha = 0.6)+
   geom_hline(yintercept = 0.95, linetype = "dotted", color = "darkblue") +
