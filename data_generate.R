@@ -10,10 +10,10 @@ library(mvtnorm)
 # mu_x, s_x : mean and standard deviation of X 
 # mu_z, s_z : mean and standard deviation of Z
 # rho : correlation between X and Z
-# beta0, beta1: parameters used to calculate inclusion probabilities
+# b0, b1: parameters used to calculate inclusion probabilities
 # n : sample size
 # N : population size
-data_normal = function(mu_x, mu_z, s_x, s_z, rho, beta0, beta1, n, N){
+data_normal = function(mu_x, mu_z, s_x, s_z, rho, b0, b1, n, N){
   
   # mean vector
   mu = c(mu_x, mu_z)
@@ -26,8 +26,8 @@ data_normal = function(mu_x, mu_z, s_x, s_z, rho, beta0, beta1, n, N){
   colnames(data.pop) = c("X", "Z")
   
   # selection probabilities using probit link
-  # pi = \Phi(\beta_0 + \beta_1*Z)
-  sel.prob = pnorm(beta0 + beta1*data.pop[ , "Z"])
+  # pi = \Phi(b_0 + b_1*Z)
+  sel.prob = pnorm(b0 + b1*data.pop[ , "Z"])
   
   # sample indicators
   sel.ind = sample(1:N, size = n, prob = sel.prob)
@@ -59,11 +59,11 @@ data_normal = function(mu_x, mu_z, s_x, s_z, rho, beta0, beta1, n, N){
 # mu_z, s_z : mean and standard deviation of Z
 # s_v : standard deviation of V
 # rho : correlation between V and Z
-# beta0, beta1: parameters used to calculate inclusion probabilities
+# b0, b1: parameters used to calculate inclusion probabilities
 # n : sample size
 # N : population size
 data_probit = function(beta_reg, mu_x = 1, s_x = 0.1, mu_z = 0, s_z = 1, s_v = 1, 
-                       rho, beta0, beta1, n, N){
+                       rho, b0, b1, n, N){
   
   X = rnorm(N, mean = mu_x, sd = s_x)
   mu_v = X*beta_reg
@@ -80,8 +80,8 @@ data_probit = function(beta_reg, mu_x = 1, s_x = 0.1, mu_z = 0, s_z = 1, s_v = 1
   Y = ifelse(data.pop[ , "V"] >= 0, 1, 0)
   
   # selection probabilities using probit link
-  # pi = \Phi(\beta_0 + \beta_1*Z)
-  sel.prob = pnorm(beta0 + beta1*data.pop[ , "Z"])
+  # pi = \Phi(b_0 + b_1*Z)
+  sel.prob = pnorm(b0 + b1*data.pop[ , "Z"])
   
   # sample indicators
   sel.ind = sample(1:N, size = n, prob = sel.prob)
