@@ -2,9 +2,10 @@ Scalable Efficient Inference in Complex Surveys through Targeted
 Resampling of Weights
 ================
 
-Implementation of modeling framework proposed in the paper Das, S.,
-Bandyopadhyay, D., and Pati, D. (2025+) “Scalable Efficient Inference in
-Complex Surveys through Targeted Resampling”.
+Implementation of modeling framework proposed in the paper [Das, S.,
+Bandyopadhyay, D., and Pati, D. (2025+) Scalable Efficient Inference in
+Complex Surveys through Targeted
+Resampling](https://arxiv.org/abs/2504.11636).
 
 ## Overview
 
