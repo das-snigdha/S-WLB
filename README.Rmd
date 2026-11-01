@@ -1,5 +1,5 @@
 ---
-title: Scalable Efficient Inference in Complex Surveys through Targeted Resampling of Weights
+title: Model-based inference in complex surveys through targeted resampling of weights
 output: 
   github_document: default
 ---
@@ -8,109 +8,178 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Implementation of modeling framework proposed in the paper [Das, S., Bandyopadhyay, D., and Pati, D. (2025+) Scalable Efficient Inference in Complex Surveys through Targeted Resampling](https://arxiv.org/abs/2504.11636).
+Implementation of modeling framework proposed in the paper [Das, S., Bandyopadhyay, D., and Pati, D. (2026+) Model-based inference in complex surveys through targeted resampling of weights](https://arxiv.org/abs/2504.11636).
 
 ## Overview
 
-Survey data often arises from complex sampling designs with unequal inclusion probabilities. When sampling is informative, traditional inference methods yield biased estimators and poor coverage. For efficient inference on survey data, we propose the *Survey-adjusted Weighted Likelihood Bootstrap* (S-WLB), which resamples weights from a from a carefully chosen distribution centered around the underlying sampling weights. S-WLB is computationally efficient, theoretically consistent, and delivers finite-sample uncertainty intervals which are proven to be asymptotically valid. 
+Survey data often arises from complex sampling designs with unequal inclusion 
+probabilities. When sampling is informative, traditional inference methods can 
+yield biased estimators and poor coverage. For efficient inference on survey data, 
+we propose the *Survey-adjusted Weighted Likelihood Bootstrap* (S-WLB), 
+which resamples weights from a carefully chosen distribution centered around 
+the underlying sampling weights. S-WLB is theoretically consistent, and 
+provides finite-sample uncertainty intervals that are asymptotically valid. 
+We further develop the *Survey-adjusted Posterior Bootstrap* (S-PB), which 
+extends S-WLB to incorporate prior information, improving finite-sample 
+estimation and uncertainty quantification while retaining the asymptotic 
+validity of S-WLB. Both methods are computationally scalable and well suited for 
+inference under informative sampling.
 
 ## Functions
 
--  **normal_model.R** - Functions to get the estimators when data is generated from a normal model. Estimates are obtained from the following functions:
+- **`func.R`** – Functions for generating survey data from a normal model, implementing the competing estimation methods, and conducting simulation studies.
 
-   - `SWLB.normal` - Our proposed Survey-adjusted Weighted Likelihood Bootstrap. 
-   - `PMLE.normal` - Pseudo Maximum Likelihood Estimator. 
-   - `WBB.normal` - Weighted Bayesian Bootstrap, Algorithm 2 of [Gunawan et al. (2020)](https://onlinelibrary.wiley.com/doi/abs/10.1111/anzs.12284). 
-   - `BPPE.normal` - Bayesian Pseudo Posterior Estimator ([Savitsky \& Toth, 2016](https://projecteuclid.org/journals/electronic-journal-of-statistics/volume-10/issue-1/Bayesian-estimation-under-informative-sampling/10.1214/16-EJS1153.full)). 
-   - `UBE.normal` - Unweighted Bayesian Estimator.
-   
+  **Estimation methods:**
+  - `oracle_iid_bayes` – Oracle Bayesian estimator based on an i.i.d. sample from the population.
+  - `pmle_mean` – Pseudo Maximum Likelihood Estimator (PMLE).
+  - `swlb_draws` – Our proposed Survey-adjusted Weighted Likelihood Bootstrap (S-WLB).
+  - `spb_draws` – Our proposed Survey-adjusted Posterior Bootstrap (S-PB).
+  - `bppe_draws` – Bayesian Pseudo Posterior Estimator (BPPE; [Savitsky & Toth, 2016](https://projecteuclid.org/journals/electronic-journal-of-statistics/volume-10/issue-1/Bayesian-estimation-under-informative-sampling/10.1214/16-EJS1153.full)).
+  - `wfpbb_draws` – Bayesian Weighted Estimator (BWE; [Gunawan et al., 2020](https://onlinelibrary.wiley.com/doi/abs/10.1111/anzs.12284)).
+  - UBE – Unweighted Bayesian Estimator, implemented using `bppe_draws` with all sampling weights set to 1.
 
--  **probit_model.R** - Functions to get the estimators when data is generated from a probit regression model. Estimates are obtained from the following functions:
+  **Additional functions:**
+  - `data_normal` – Generates finite population data and survey samples under equal-probability or informative sampling.
+  - `WFPBB` – Implements the weighted finite population Bayesian bootstrap resampling procedure used for BWE.
+  - `pilot_prior` – Constructs an informative prior using data from an independent pilot survey.
+  - `estimate_w0_pompe` – Estimates the prior calibration parameter for S-PB.
+  - `ci_draws` – Computes uncertainty intervals from the simulated draws.
+  - `wasserstein_1d_normal_emp` – Computes the empirical squared 2-Wasserstein distance between two sets of draws.
+  - `ise_to_oracle` and `ise_normal_to_oracle` – Compute discrepancies between estimated distributions and the oracle distribution.
+  - `run_one_rep` – Runs a single simulation replicate and evaluates the competing methods.
+  - `run_simulation_parallel` – Runs Monte Carlo simulation replicates in parallel.
 
-   - `SWLB.probit` - Our proposed Survey-adjusted Weighted Likelihood Bootstrap. 
-   - `PMLE.probit` - Pseudo Maximum Likelihood Estimator. 
-   - `WBB.probit` - Weighted Bayesian Bootstrap, Algorithm 3 of [Gunawan et al. (2020)](https://onlinelibrary.wiley.com/doi/abs/10.1111/anzs.12284). 
-   - `BPPE.probit` - Bayesian Pseudo Posterior Estimator ([Savitsky \& Toth, 2016](https://projecteuclid.org/journals/electronic-journal-of-statistics/volume-10/issue-1/Bayesian-estimation-under-informative-sampling/10.1214/16-EJS1153.full)). 
-   - `UBE.probit` - Unweighted Bayesian Estimator.
-   
-   
--  **data_generate.R** - Functions to generate data under a survey design with unequal probability of sampling. The functions `data_normal` and `data_probit` generate data from the normal model and the probit regression model, respectively. 
-   
 
 ## Example
 
-We create a population of size $N = 50,000$ where our random variable of interest $X$ and selection variable $Z$ jointly follow a bivariate normal distribution with means $\mu_x = 10$, $\mu_z = 0$, standard deviations $\sigma_x = 4$, $\sigma_z = 3$ and correlation $\rho = 0.5$.
+We consider a finite population of size $N = 20,000$, where the outcome $Y$ and the selection variable $X$ jointly follow a bivariate normal distribution with means $\mu_y = \mu_x = 0$, standard deviations $\sigma_y = 4$ and $\sigma_x = 3$, and correlation $\rho = 0.6$.
 
-For each population unit $l = 1, 2, \ldots, N$, the inclusion probabilities are generated as $\pi_l = \Phi(b_0 + b_1 Z_l)$, where $\Phi$ is the cumulative distribution function of a standard normal distribution, $b_0 = -1.8$ and $b_1 = 0.1$. 
+For each population unit $l = 1, 2, \ldots, N$, the inclusion probability is given by $\pi_l = \Phi(\beta_0 + \beta_1 X_l)$, where $\Phi$ denotes the standard normal cumulative distribution function, $\beta_0 = -1.8$, and $\beta_1 = 0.15$. A survey sample is drawn using independent Bernoulli selection indicators, resulting in an expected sample size of approximately $n = 1000$.
 
-Draw a sample of size $n = 500$ from the finite population with these inclusion probabilities. Let $w_{n,i} = n {\pi_i}^{-1} / \sum_{j=1}^n {\pi_j}^{-1}$ denote the scaled sampling weight of sampled unit $i$, where $\pi_i$ denotes its inclusion probability.
+The scaled sampling weights are defined as $w_{n,i} = n\pi_i^{-1}/\sum_{j=1}^n\pi_j^{-1}$ for the sampled units. Our objective is to estimate the superpopulation mean $\mu_y$ and quantify the associated uncertainty.
 
-Our objective in this setting is to infer about the population mean, $\mu_x$.
+For methods incorporating prior information, we specify a normal prior $\mu_y \sim N(m_0,\tau^2)$ with $m_0 = 0.25$ and $\tau = 0.5$.
 
-**Data generation** :
-```{r, message = FALSE, warning = FALSE}
-library(tidyverse)
-source("data_generate.R")
-source("normal_model.R")
+### Data generation
 
-set.seed(25)
-# Specify the population and sample sizes
-N = 50000; n = 500
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+source("func.R")
 
-# Specify the parameters to generate the data
-mu_x = 10; mu_z = 0; s_x = 4; s_z = 3; rho = 0.5
-b0 = -1.8; b1 =0.1;  M = 2000
+set.seed(200)
 
-# generate the data from the normal model
-df = data_normal(mu_x = mu_x, mu_z = mu_z, s_x = s_x, s_z = s_z, rho = rho,
-                 b0 = b0, b1 = b1, n = n, N = N)
+# Population parameters
+n_target <- 1000
+c_inv <- 20   # inverse sampling fraction
+N <- c_inv * n_target
+
+mu_x <- 0; mu_y <- 0
+s_x <- 3; s_y <- 4
+rho <- 0.6
+
+# Sampling design
+beta0 <- -1.8
+beta1 <- 0.15
+
+# Prior parameters
+m0 <- 0.25
+tau <- 0.5
+
+# Bootstrap draws
+B <- 2000
+
+df <- data_normal(mu_x = mu_x, mu_y = mu_y, s_x = s_x, s_y = s_y,
+  rho = rho, beta0 = beta0, beta1 = beta1, N = N)
+
+# Realized survey sample size
+df$n_samp
 ```
 
-**Get the point and interval estimates from the S-WLB method** :
-```{r, message = FALSE, warning = FALSE}
-est.SWLB = SWLB.normal(y = df$x, w = df$w, B = M)
-est.SWLB
+### S-WLB and S-PB estimation
+
+We obtain point estimates and $95\%$ uncertainty intervals using our proposed S-WLB and S-PB methods. For S-PB, the prior calibration parameter is estimated using `estimate_w0_pompe`.
+
+```{r, message=FALSE, warning=FALSE}
+# S-WLB
+swlb <- swlb_draws( y = df$y, w_tilde = df$w, B = B)
+
+# S-PB
+w0_hat <- estimate_w0_pompe(y = df$y, w_tilde = df$w, s_y = s_y)
+spb <- spb_draws(y = df$y, w_tilde = df$w, s_y = s_y, m0 = m0, tau = tau, w0 = w0_hat, B = B)
+
+# Point estimates and 95% intervals
+data.frame(
+  Method = c("S-WLB", "S-PB"),
+  Estimate = c(mean(swlb), mean(spb)),
+  Lower = c(ci_draws(swlb)[1], ci_draws(spb)[1]),
+  Upper = c(ci_draws(swlb)[2], ci_draws(spb)[2])
+)
 ```
 
-**Demonstrate the performance in point estimation and coverage probability of uncertainty intervals** :
+### Monte Carlo simulation
 
-We perform $100$ Monte Carlo simulations to compare the performance in point estimation and coverage probability of uncertainty intervals across the different methods.
-```{r, message = FALSE, warning = FALSE}
-# Specify the number of Monte Carlo simulations
-nRep = 100
-# Specify the methods for comparison
-methods = c("PMLE", "SWLB", "BPPE", "UBE")
+We perform $100$ Monte Carlo replicates to compare the performance of PMLE, S-WLB, S-PB, BPPE, and UBE in terms of mean squared error, coverage probability, and average interval length. 
 
-# Matrices to store the point estimates and coverage indicators
-est = CovI = matrix(NA, nrow = nRep, ncol = length(methods))
-colnames(est) = colnames(CovI) = methods
+```{r, message=FALSE, warning=FALSE}
+nRep <- 100
 
-set.seed(25)
-for(r in 1:nRep){
-  
-  # generate the data
-  df = data_normal(mu_x = mu_x, mu_z = mu_z, s_x = s_x, s_z = s_z, rho = rho,
-                   b0 = b0, b1 = b1, n = n, N = N)
-  
+methods <- c("PMLE", "S-WLB", "S-PB", "BPPE", "UBE")
+
+# Store point estimates, coverage indicators,
+# and interval lengths
+est <- CovI <- IntLen <- matrix(
+  NA_real_, nrow = nRep, ncol = length(methods),
+  dimnames = list(NULL, methods))
+
+set.seed(200)
+
+for (r in seq_len(nRep)) {
+
+  # Generate survey data
+  df <- data_normal(mu_x = mu_x, mu_y = mu_y, s_x = s_x, s_y = s_y,
+    rho = rho, beta0 = beta0, beta1 = beta1, N = N)
+
+  y <- df$y
+  wt <- df$w
+  n <- length(y)
+
   # PMLE
-  est.PMLE = PMLE.normal(y = df$x, w = df$w)
-  est[r, "PMLE"] = est.PMLE$mu.PMLE
-  CovI[r, "PMLE"] = 1*(mu_x >= est.PMLE$CI.PMLE[1] && mu_x <= est.PMLE$CI.PMLE[2])
-  
-  # UBE
-  est.UBE = UBE.normal(y = df$x)
-  est[r, "UBE"] = est.UBE$mu.UBE
-  CovI[r, "UBE"] = 1*(mu_x >= est.UBE$CI.UBE[1] && mu_x <= est.UBE$CI.UBE[2])
-  
+  pmle <- pmle_mean(y, wt)
+  Iw_hat <- mean(wt^2 * ((y - pmle) / s_y^2)^2)
+  pmle_var <- s_y^4 * Iw_hat / n
+  ci_pmle <- pmle + qnorm(c(0.025, 0.975)) * sqrt(pmle_var)
+
+  # S-WLB
+  swlb <- swlb_draws(y, wt, B = B)
+  ci_swlb <- ci_draws(swlb)
+
+  # S-PB
+  w0_hat <- estimate_w0_pompe(y, wt, s_y = s_y)
+  spb <- spb_draws(y, wt, s_y = s_y, m0 = m0, tau = tau, w0 = w0_hat, B = B)
+  ci_spb <- ci_draws(spb)
+
   # BPPE
-  est.BPPE = BPPE.normal(y = df$x, w = df$w)
-  est[r, "BPPE"] = est.BPPE$mu.BPPE
-  CovI[r, "BPPE"] = 1*(mu_x >= est.BPPE$CI.BPPE[1] && mu_x <= est.BPPE$CI.BPPE[2])
+  bppe <- bppe_draws(y, wt, s_y = s_y, m0 = m0, tau = tau, B = B)
+  ci_bppe <- ci_draws(bppe)
+
+  # UBE
+  ube <- bppe_draws(y, rep(1, n), s_y = s_y, m0 = m0, tau = tau, B = B)
+  ci_ube <- ci_draws(ube)
+
+  # Store point estimates
+  est[r, ] <- c(
+    pmle, mean(swlb), mean(spb), mean(bppe), mean(ube)
+  )
+
+  # Store interval estimates
+  intervals <- list( ci_pmle, ci_swlb, ci_spb, ci_bppe, ci_ube)
+
+  # Coverage indicators
+  CovI[r, ] <- sapply(intervals, function(ci) {as.integer(ci[1] <= mu_y && mu_y <= ci[2])})
+
+  # Interval lengths
+  IntLen[r, ] <- sapply(intervals, diff)
   
-  # SWLB
-  est.SWLB = SWLB.normal(y = df$x, w = df$w, B = M)
-  est[r, "SWLB"] = est.SWLB$mu.SWLB
-  CovI[r, "SWLB"] = 1*(mu_x >= est.SWLB$CI.SWLB[1] && mu_x <= est.SWLB$CI.SWLB[2])
 }
 ```
 
@@ -136,44 +205,120 @@ themegg = theme(
 )
 ```
 
-Plot showing the point estimates:
+### Point estimation
 
-```{r, warning=FALSE, message=FALSE}
+The following boxplots compare the point estimates obtained from the competing methods across $100$ Monte Carlo replicates. The dotted horizontal line represents the true population mean $\mu_y$.
+
+```{r, message=FALSE, warning=FALSE}
 # all plots follow a pre-specified theme stored in "themegg", 
 # which can be found in the README.Rmd file.
 
-# data frame for plotting the point estimates
-df.est = data.frame(est = c(est), method = rep(methods, each = nRep))
-df.est$method = factor(df.est$method, levels = methods)
+# Common colors and plot theme
+method_colors <- c(
+  "PMLE" = "dodgerblue2",
+  "S-WLB" = "sienna",
+  "S-PB" = "forestgreen",
+  "BPPE" = "orange",
+  "UBE" = "grey30"
+)
 
-# Boxplots of the point estimates 
-g.est = ggplot(df.est, aes(x = method, y = est, color = method)) +
-  geom_boxplot(outlier.size = 0.2) + 
-  geom_hline(yintercept = mu_x, linetype = "dotted", color = "darkblue") +
-  scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
-  xlab("Methods") + ylab("Estimate of the mean") + themegg
+# Data frame for point estimates
+df.est <- data.frame(
+  Method = factor(
+    rep(methods, each = nRep),
+    levels = methods
+  ),
+  Estimate = c(est))
+
+# Boxplots
+g.est <- ggplot(
+  df.est,
+  aes(x = Method, y = Estimate, color = Method)
+) +
+  geom_boxplot(
+    outlier.size = 0.3
+  ) +
+  geom_hline(
+    yintercept = mu_y,
+    linetype = "dotted",
+    color = "darkblue"
+  ) +
+  scale_color_manual(values = method_colors) +
+  xlab("Methods") +
+  ylab("Estimate of the mean") +
+  themegg
+
 g.est
 ```
 
-Plot showing the coverage probability of the $95$\% intervals:
+### Coverage probability
 
-```{r, warning=FALSE, message=FALSE}
+The following barplot displays the empirical coverage probabilities of the $95$\% intervals. The dotted horizontal line indicates the nominal coverage level of $0.95$.
+
+```{r, message=FALSE, warning=FALSE}
 # all plots follow a pre-specified theme stored in "themegg", 
 # which can be found in the README.Rmd file.
 
-# Calculate the coverage probability
-CovP = colMeans(CovI)
+df.cov <- data.frame(
+  Method = factor(methods, levels = methods),
+  Coverage = colMeans(CovI)
+)
 
-# data frame for plotting the coverage probability
-df.cov = data.frame(covP = CovP, method = methods)
-df.cov$method = factor(df.cov$method, levels = methods)
+g.cov <- ggplot(
+  df.cov,
+  aes(x = Method, y = Coverage, color = Method, fill = Method)
+) +
+  geom_col(
+    width = 0.6,
+    alpha = 0.7
+  ) +
+  geom_hline(
+    yintercept = 0.95,
+    linetype = "dotted",
+    color = "darkblue"
+  ) +
+  scale_fill_manual(values = method_colors) +
+  scale_color_manual(values = method_colors) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    breaks = seq(0, 1, 0.2)
+  ) +
+  xlab("Methods") +
+  ylab("Coverage probability") +
+  themegg
 
-# Barplots of the coverage probability
-g.cov = ggplot(df.cov, aes(x = method, y = covP, color = method, fill = method)) +
-  geom_bar(stat="identity", width = 0.5, alpha = 0.6)+
-  geom_hline(yintercept = 0.95, linetype = "dotted", color = "darkblue") +
-  scale_color_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
-  scale_fill_manual(values = c( "brown2", "forestgreen","orange", "grey30")) +
-  xlab("Methods") + ylab("Coverage probability") + themegg
 g.cov
+```
+
+### Average interval length
+
+The following barplot compares the average lengths of the $95$\% intervals across methods. Shorter intervals indicate more precise inference, provided that the corresponding coverage probabilities remain close to the nominal level.
+
+```{r, message=FALSE, warning=FALSE}
+# all plots follow a pre-specified theme stored in "themegg", 
+# which can be found in the README.Rmd file.
+
+df.len <- data.frame(
+  Method = factor(methods, levels = methods),
+  Avg_length = colMeans(IntLen)
+)
+
+g.len <- ggplot(
+  df.len,
+  aes(x = Method, y = Avg_length, color = Method, fill = Method)
+) +
+  geom_col(
+    width = 0.6,
+    alpha = 0.7
+  ) +
+  scale_color_manual(values = method_colors) +
+  scale_fill_manual(values = method_colors) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  xlab("Methods") +
+  ylab("Average 95% interval length") +
+  themegg
+
+g.len
 ```
